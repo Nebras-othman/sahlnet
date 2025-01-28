@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: freeradius
+      POSTGRES_PASSWORD: radpass
+      POSTGRES_DB: freeradius
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - radius_net
+
+  freeradius:
+    build:
+      context: ./freeradius
+    container_name: freeradius
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: freeradius
+      DB_USER: freeradius
+      DB_PASS: radpass
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+    networks:
+      - radius_net
+    depends_on:
+      - postgres
+
+  coovachilli:
+    image: sdesbure/coova-chilli:latest
+    container_name: coovachilli
+    cap_add:
+      - NET_ADMIN
+    network_mode: "host"
+    volumes:
+      - ./config/chilli.conf:/etc/chilli.conf
+    environment:
+      RADIUS_SERVER: "localhost"
+      RADIUS_SECRET: "testing123"
+      UAM_SECRET: "uamsecret"
+      HS_NETWORK: "10.1.0.0"
+      HS_NETMASK: "255.255.255.0"
+      HS_UAMLISTEN: "10.1.0.1"
+      HS_UAMPORT: "3990"
+      HS_NASID: "nas01"
+      HS_UAMALLOW: "www.google.com"
+    depends_on:
+      - freeradius
+
+
+networks:
+  radius_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
